@@ -32,6 +32,29 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ─── Authentication Gate ────────────────────────────────────────────────────
+_APP_PASSWORD = os.getenv("APP_PASSWORD", "")
+if _APP_PASSWORD:
+    if not st.session_state.get("authenticated"):
+        st.markdown("""
+        <div style="display:flex;justify-content:center;align-items:center;min-height:60vh;">
+            <div style="text-align:center;max-width:400px;width:100%;">
+                <h1 style="font-size:2.5rem;margin-bottom:0.2rem;">📈</h1>
+                <h2 style="opacity:0.8;margin-bottom:1.5rem;">TradingAgents</h2>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col2:
+            pw = st.text_input("🔒 Enter password to continue", type="password", key="login_pw")
+            if pw:
+                if pw == _APP_PASSWORD:
+                    st.session_state.authenticated = True
+                    st.rerun()
+                else:
+                    st.error("Wrong password")
+        st.stop()
+
 # ─── Custom CSS ─────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
