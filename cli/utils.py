@@ -1,3 +1,5 @@
+import os
+
 import questionary
 from typing import List, Optional, Tuple, Dict
 
@@ -136,6 +138,23 @@ def select_research_depth() -> int:
 def select_shallow_thinking_agent(provider) -> str:
     """Select shallow thinking llm engine using an interactive selection."""
 
+    # Custom provider: allow free-text model name input
+    if provider.lower() == "custom":
+        model = questionary.text(
+            "Enter your Quick-Thinking model name (e.g. gemini-3-flash, gpt-4o):",
+            validate=lambda x: len(x.strip()) > 0 or "Please enter a model name.",
+            style=questionary.Style(
+                [
+                    ("text", "fg:magenta"),
+                    ("highlighted", "noinherit"),
+                ]
+            ),
+        ).ask()
+        if not model:
+            console.print("\n[red]No model name provided. Exiting...[/red]")
+            exit(1)
+        return model.strip()
+
     # Define shallow thinking llm engine options with their corresponding model names
     # Ordering: medium → light → heavy (balanced first for quick tasks)
     # Within same tier, newer models first
@@ -201,6 +220,23 @@ def select_shallow_thinking_agent(provider) -> str:
 def select_deep_thinking_agent(provider) -> str:
     """Select deep thinking llm engine using an interactive selection."""
 
+    # Custom provider: allow free-text model name input
+    if provider.lower() == "custom":
+        model = questionary.text(
+            "Enter your Deep-Thinking model name (e.g. gemini-3.1-pro-high, claude-sonnet-4-6):",
+            validate=lambda x: len(x.strip()) > 0 or "Please enter a model name.",
+            style=questionary.Style(
+                [
+                    ("text", "fg:magenta"),
+                    ("highlighted", "noinherit"),
+                ]
+            ),
+        ).ask()
+        if not model:
+            console.print("\n[red]No model name provided. Exiting...[/red]")
+            exit(1)
+        return model.strip()
+
     # Define deep thinking llm engine options with their corresponding model names
     # Ordering: heavy → medium → light (most capable first for deep tasks)
     # Within same tier, newer models first
@@ -263,22 +299,27 @@ def select_deep_thinking_agent(provider) -> str:
     return choice
 
 def select_llm_provider() -> tuple[str, str]:
-    """Select the OpenAI api url using interactive selection."""
-    # Define OpenAI api options with their corresponding endpoints
+    """Select the LLM provider using interactive selection."""
+    # Read custom base URL from env
+    custom_base_url = os.getenv("OPENAI_API_BASE", "").strip()
+    custom_label = f"Custom (OpenAI-compatible) → {custom_base_url}" if custom_base_url else "Custom (OpenAI-compatible) → set OPENAI_API_BASE in .env"
+
+    # Define provider options with their corresponding endpoints
     BASE_URLS = [
-        ("OpenAI", "https://api.openai.com/v1"),
-        ("Google", "https://generativelanguage.googleapis.com/v1"),
-        ("Anthropic", "https://api.anthropic.com/"),
-        ("xAI", "https://api.x.ai/v1"),
-        ("Openrouter", "https://openrouter.ai/api/v1"),
-        ("Ollama", "http://localhost:11434/v1"),
+        (custom_label, "Custom", custom_base_url or "https://api.openai.com/v1"),
+        ("OpenAI", "OpenAI", "https://api.openai.com/v1"),
+        ("Google", "Google", "https://generativelanguage.googleapis.com/v1"),
+        ("Anthropic", "Anthropic", "https://api.anthropic.com/"),
+        ("xAI", "xAI", "https://api.x.ai/v1"),
+        ("Openrouter", "Openrouter", "https://openrouter.ai/api/v1"),
+        ("Ollama", "Ollama", "http://localhost:11434/v1"),
     ]
-    
+
     choice = questionary.select(
         "Select your LLM Provider:",
         choices=[
-            questionary.Choice(display, value=(display, value))
-            for display, value in BASE_URLS
+            questionary.Choice(display, value=(provider_name, url))
+            for display, provider_name, url in BASE_URLS
         ],
         instruction="\n- Use arrow keys to navigate\n- Press Enter to select",
         style=questionary.Style(
@@ -289,11 +330,11 @@ def select_llm_provider() -> tuple[str, str]:
             ]
         ),
     ).ask()
-    
+
     if choice is None:
-        console.print("\n[red]no OpenAI backend selected. Exiting...[/red]")
+        console.print("\n[red]No LLM provider selected. Exiting...[/red]")
         exit(1)
-    
+
     display_name, url = choice
     print(f"You selected: {display_name}\tURL: {url}")
 
