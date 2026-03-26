@@ -11,6 +11,8 @@ import datetime
 import threading
 from pathlib import Path
 
+import requests as _requests
+
 import streamlit as st
 from streamlit.runtime.scriptrunner import add_script_run_ctx
 from dotenv import load_dotenv
@@ -121,6 +123,27 @@ for k, v in defaults.items():
 # ─── Header ─────────────────────────────────────────────────────────────────
 st.markdown('<div class="main-header"><h1>📈 TradingAgents</h1><p>Multi-Agent LLM Financial Trading Framework</p></div>', unsafe_allow_html=True)
 
+# ─── Fetch models from proxy ────────────────────────────────────────────────
+@st.cache_data(ttl=300, show_spinner=False)
+def _fetch_proxy_models(base_url: str) -> list[str]:
+    """Fetch available model IDs from an OpenAI-compatible /v1/models endpoint."""
+    try:
+        api_key = os.getenv("OPENAI_API_KEY", "")
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+        # Normalize URL: strip trailing /v1 if present to avoid /v1/v1/models
+        url = base_url.rstrip("/")
+        if url.endswith("/v1"):
+            url = url
+        else:
+            url = url + "/v1"
+        resp = _requests.get(f"{url}/models", headers=headers, timeout=5)
+        resp.raise_for_status()
+        data = resp.json().get("data", [])
+        models = sorted([m["id"] for m in data if m.get("id")])
+        return models if models else []
+    except Exception:
+        return []
+
 # ─── Sidebar ────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## ⚙️ Configuration")
@@ -142,8 +165,14 @@ with st.sidebar:
 
     st.markdown("#### Models")
     if provider_key == "custom":
-        quick_model = st.text_input("Quick-Thinking Model", value="gemini-3-flash", placeholder="Model name on your proxy")
-        deep_model = st.text_input("Deep-Thinking Model", value="gemini-3.1-pro-high", placeholder="Model name on your proxy")
+        proxy_models = _fetch_proxy_models(provider_info["url"])
+        if proxy_models:
+            quick_model = st.selectbox("Quick-Thinking Model", proxy_models, index=0, key="custom_quick")
+            deep_model = st.selectbox("Deep-Thinking Model", proxy_models, index=min(1, len(proxy_models) - 1), key="custom_deep")
+        else:
+            st.caption("⚠️ Could not fetch models from proxy. Enter manually:")
+            quick_model = st.text_input("Quick-Thinking Model", value="gemini-3-flash", placeholder="Model name on your proxy")
+            deep_model = st.text_input("Deep-Thinking Model", value="gemini-3.1-pro-high", placeholder="Model name on your proxy")
     elif provider_key in PRESET_MODELS:
         presets = PRESET_MODELS[provider_key]
         quick_model = st.selectbox("Quick-Thinking Model", presets["quick"], index=0)
